@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coordenação — Avaliação de Pôsteres · XX CBL</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --azul:#1B75BB;--azul-esc:#125088;--verde:#2E9E5B;--amarelo:#F2A900;
+    --cinza:#f4f6f9;--borda:#dde3ea;--texto:#1f2a37;--suave:#6b7684;
+    --sombra:0 1px 3px rgba(16,40,70,.08),0 1px 2px rgba(16,40,70,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--cinza);color:var(--texto);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 16px}
+  header{background:linear-gradient(135deg,var(--azul) 0%,var(--azul-esc) 100%);color:#fff;padding:20px 0}
+  header .wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header .logo{background:#fff;padding:9px 14px;border-radius:10px;display:flex;align-items:center;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  header .logo svg{display:block}
+  header h1{font-size:19px;font-weight:700}
+  header p{font-size:13px;opacity:.9;margin-top:2px}
+  .tag{margin-left:auto;background:rgba(255,255,255,.18);padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600}
+  .card{background:#fff;border:1px solid var(--borda);border-radius:12px;box-shadow:var(--sombra);padding:24px;margin:20px 0}
+  h2{font-size:17px;margin-bottom:16px;color:var(--azul-esc)}
+  label{display:block;font-size:13px;font-weight:600;color:var(--suave);margin-bottom:6px;margin-top:14px}
+  label:first-of-type{margin-top:0}
+  input,select{width:100%;padding:11px 13px;border:1px solid var(--borda);border-radius:8px;font-size:15px;font-family:inherit;background:#fff;color:var(--texto)}
+  input:focus,select:focus{outline:none;border-color:var(--azul);box-shadow:0 0 0 3px rgba(27,117,187,.12)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--azul);color:#fff;border:none;
+    padding:12px 22px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:background .15s;font-family:inherit}
+  .btn:hover{background:var(--azul-esc)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-verde{background:var(--verde)}.btn-verde:hover{background:#247a46}
+  .btn-sec{background:#fff;color:var(--azul);border:1px solid var(--azul)}.btn-sec:hover{background:#eef5fb}
+  .hide{display:none!important}
+  .msg{padding:11px 14px;border-radius:8px;font-size:13px;margin-top:14px}
+  .msg-err{background:#fdecec;color:#b3261e;border:1px solid #f5c2c0}
+  .msg-ok{background:#e7f6ec;color:#1c7c3f;border:1px solid #b6e0c4}
+  .msg-info{background:#fff6e0;color:#8a6100;border:1px solid #f3d98a}
+  .fb-warn{background:#fdecec;border:1px solid #f5c2c0;border-radius:8px;padding:12px 14px;font-size:13px;color:#b3261e;margin-bottom:16px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:4px}
+  @media(max-width:720px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--cinza);border-radius:10px;padding:16px}
+  .kpi .n{font-size:26px;font-weight:800;color:var(--azul-esc)}
+  .kpi .l{font-size:12px;color:var(--suave);font-weight:600;margin-top:2px}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .toolbar input[type=text]{max-width:280px}
+  .toolbar select{max-width:200px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--borda);white-space:nowrap}
+  th{background:var(--cinza);font-weight:700;color:var(--azul-esc);position:sticky;top:0;cursor:pointer;user-select:none}
+  th:hover{background:#e7ecf2}
+  td.tit{white-space:normal;min-width:280px;max-width:380px}
+  tr:hover td{background:#f8fafc}
+  .media-cell{font-weight:800;color:var(--azul-esc)}
+  .rank{display:inline-block;width:26px;height:26px;line-height:26px;text-align:center;border-radius:50%;
+    background:var(--cinza);font-weight:700;font-size:12px}
+  .rank.top1{background:#F2A900;color:#fff}.rank.top2{background:#c7cdd4;color:#fff}.rank.top3{background:#cd7f32;color:#fff}
+  .scroll{overflow-x:auto;border:1px solid var(--borda);border-radius:10px}
+  .aba{display:flex;gap:6px;margin-bottom:16px;border-bottom:2px solid var(--borda)}
+  .aba button{background:none;border:none;padding:10px 16px;font-size:14px;font-weight:600;color:var(--suave);
+    cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:inherit}
+  .aba button.ativa{color:var(--azul-esc);border-bottom-color:var(--azul)}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px}
+  .pill-ok{background:#e7f6ec;color:#1c7c3f}.pill-parc{background:#fff6e0;color:#8a6100}
+  footer{text-align:center;padding:24px;font-size:12px;color:var(--suave)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="logo"><svg width="150" height="52" viewBox="0 0 150 52" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="XX Congresso Brasileiro de Limnologia">
+        <defs>
+          <linearGradient id="gLimno" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#4aa3d8"/>
+            <stop offset="1" stop-color="#0f4c81"/>
+          </linearGradient>
+        </defs>
+        <!-- XX sobreposto, verde -->
+        <g fill="#4CA02C" font-family="Arial Black, Arial, sans-serif" font-weight="900">
+          <text x="0" y="20" font-size="24" letter-spacing="-4">X</text>
+          <text x="13" y="20" font-size="24" letter-spacing="-4">X</text>
+        </g>
+        <!-- CONGRESSO BRASILEIRO DE -->
+        <text x="36" y="11" font-family="Arial, sans-serif" font-weight="700" font-size="8.5" fill="#5a6470" letter-spacing="0.3">CONGRESSO</text>
+        <text x="36" y="20" font-family="Arial, sans-serif" font-weight="700" font-size="8.5" fill="#5a6470" letter-spacing="0.3">BRASILEIRO DE</text>
+        <!-- LIMNOLOGIA -->
+        <text x="1" y="46" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="26" fill="url(#gLimno)" letter-spacing="-0.5">LIMNOLOGIA</text>
+      </svg></div>
+    <div>
+      <h1>Painel da Coordenação</h1>
+      <p>Avaliação de Pôsteres · XX Congresso Brasileiro de Limnologia</p>
+    </div>
+    <span class="tag" id="tag-conexao">●</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- LOGIN -->
+  <div id="tela-login" class="card" style="max-width:440px;margin:36px auto">
+    <h2>Acesso restrito</h2>
+    <div id="fb-status" class="fb-warn hide"></div>
+    <label>Senha da coordenação</label>
+    <input id="in-senha" type="password" placeholder="Senha de administração" autocomplete="off">
+    <button class="btn" id="btn-entrar" style="width:100%;margin-top:20px">Entrar</button>
+    <div id="login-msg"></div>
+  </div>
+
+  <!-- PAINEL -->
+  <div id="tela-painel" class="hide">
+    <div class="card">
+      <div class="kpis">
+        <div class="kpi"><div class="n" id="k-avaliadores">—</div><div class="l">Avaliadores que enviaram</div></div>
+        <div class="kpi"><div class="n" id="k-avaliacoes">—</div><div class="l">Avaliações recebidas</div></div>
+        <div class="kpi"><div class="n" id="k-posteres">—</div><div class="l">Pôsteres avaliados</div></div>
+        <div class="kpi"><div class="n" id="k-media">—</div><div class="l">Média geral</div></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+        <button class="btn btn-verde" id="btn-xls">Baixar XLSX consolidado</button>
+        <button class="btn btn-sec" id="btn-atualizar">Atualizar dados</button>
+        <button class="btn btn-sec" id="btn-sair" style="margin-left:auto">Sair</button>
+      </div>
+      <div id="painel-msg"></div>
+    </div>
+
+    <div class="card">
+      <div class="aba">
+        <button class="ativa" data-aba="ranking">Ranking por pôster</button>
+        <button data-aba="detalhe">Notas por critério</button>
+        <button data-aba="avaliadores">Por avaliador</button>
+      </div>
+
+      <div class="toolbar">
+        <input type="text" id="busca" placeholder="Buscar título, autor, ID...">
+        <select id="filtro-grupo"><option value="">Todos os grupos</option></select>
+      </div>
+
+      <div id="aba-ranking" class="scroll"></div>
+      <div id="aba-detalhe" class="scroll hide"></div>
+      <div id="aba-avaliadores" class="scroll hide"></div>
+    </div>
+  </div>
+</div>
+
+<footer>XX Congresso Brasileiro de Limnologia · Painel da coordenação</footer>
+
+<script>
+// ====================== CONFIGURAÇÃO ======================
+const SENHA_COORDENACAO = "coord2026";
+// MESMA config do app dos avaliadores:
+const firebaseConfig = {
+  apiKey: "AIzaSyDphAfd7dhKoDyGTGdmqnlSOP9rpZg65OY",
+  authDomain: "limno-poster-f510e.firebaseapp.com",
+  projectId: "limno-poster-f510e",
+  storageBucket: "limno-poster-f510e.firebasestorage.app",
+  messagingSenderId: "235139330554",
+  appId: "1:235139330554:web:4da9faea2a61acaf887443"
+};
+// =========================================================
+
+const CRITERIOS=[
+  ["clareza","Clareza objetivos"],["relevancia","Relevância"],["metodologia","Metodologia"],
+  ["resultados","Resultados"],["discussao","Discussão/Concl."],["dominio","Domínio"],
+  ["originalidade","Originalidade"],["impacto","Impacto"]
+];
+const CRIT_FULL=["Clareza dos objetivos","Relevância do tema","Qualidade metodológica","Apresentação dos resultados","Discussão e conclusões","Domínio do apresentador","Originalidade","Impacto científico ou aplicado"];
+
+let db=null,fbOk=false;
+try{
+  if(firebaseConfig.apiKey && firebaseConfig.apiKey!=="COLE_AQUI"){
+    firebase.initializeApp(firebaseConfig); db=firebase.firestore(); fbOk=true;
+  }
+}catch(e){ console.error(e); }
+
+const $=id=>document.getElementById(id);
+function msg(el,t,tp){ el.innerHTML='<div class="msg msg-'+tp+'">'+t+'</div>'; }
+function esc(s){ return (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+let LINHAS=[];          // todas as avaliações (uma linha = 1 avaliador x 1 pôster)
+let abaAtual="ranking", ordCol=null, ordDir=1;
+
+if(!fbOk){
+  $("tag-conexao").textContent="offline";
+  const s=$("fb-status"); s.classList.remove("hide");
+  s.innerHTML="⚠ Firebase não configurado. Cole a mesma config do app dos avaliadores no topo deste arquivo, senão não há dados para mostrar.";
+}else{
+  $("tag-conexao").textContent="online";
+}
+
+// ---------- LOGIN ----------
+$("btn-entrar").onclick=async()=>{
+  if($("in-senha").value!==SENHA_COORDENACAO){ msg($("login-msg"),"Senha incorreta.","err"); return; }
+  $("tela-login").classList.add("hide"); $("tela-painel").classList.remove("hide");
+  await carregar();
+};
+$("btn-sair").onclick=()=>{ $("tela-painel").classList.add("hide"); $("tela-login").classList.remove("hide"); $("in-senha").value=""; };
+$("btn-atualizar").onclick=carregar;
+
+// ---------- CARREGAR ----------
+async function carregar(){
+  if(!fbOk){ msg($("painel-msg"),"Sem Firebase configurado.","err"); return; }
+  msg($("painel-msg"),"Carregando...","info");
+  try{
+    const snap=await db.collection("avaliacoes").get();
+    LINHAS=[];
+    snap.forEach(doc=>{
+      const d=doc.data();
+      (d.avaliacoes||[]).forEach(a=>LINHAS.push(a));
+    });
+    limpaMsg();
+    montaFiltros();
+    calculaKPIs();
+    render();
+    if(!LINHAS.length) msg($("painel-msg"),"Nenhuma avaliação enviada ainda.","info");
+  }catch(e){
+    console.error(e);
+    msg($("painel-msg"),"Erro ao carregar: "+e.message+". Verifique as regras do Firestore (leitura precisa estar liberada).","err");
+  }
+}
+function limpaMsg(){ $("painel-msg").innerHTML=""; }
+
+// ---------- AGRUPAR POR PÔSTER ----------
+function agrupaPorPoster(linhas){
+  const m={};
+  linhas.forEach(a=>{
+    const id=a.idPoster;
+    if(!m[id]) m[id]={idPoster:id,titulo:a.titulo,autorPrincipal:a.autorPrincipal,instituicao:a.instituicao,grupo:a.grupo,avals:[]};
+    m[id].avals.push(a);
+  });
+  return Object.values(m).map(p=>{
+    const medias=p.avals.map(a=>parseFloat(a["Média"])).filter(v=>!isNaN(v));
+    p.mediaFinal=medias.length?medias.reduce((x,y)=>x+y,0)/medias.length:null;
+    p.nAval=p.avals.length;
+    return p;
+  });
+}
+
+// ---------- KPIs ----------
+function calculaKPIs(){
+  const avaliadores=new Set(LINHAS.map(a=>a.avaliador));
+  const posteres=agrupaPorPoster(LINHAS);
+  const medias=posteres.map(p=>p.mediaFinal).filter(v=>v!=null);
+  $("k-avaliadores").textContent=avaliadores.size;
+  $("k-avaliacoes").textContent=LINHAS.length;
+  $("k-posteres").textContent=posteres.length;
+  $("k-media").textContent=medias.length?(medias.reduce((a,b)=>a+b,0)/medias.length).toFixed(2):"—";
+}
+
+// ---------- FILTROS ----------
+function montaFiltros(){
+  const grupos=[...new Set(LINHAS.map(a=>a.grupo))].filter(g=>g!=="").sort((a,b)=>a-b);
+  const sel=$("filtro-grupo");
+  sel.innerHTML='<option value="">Todos os grupos</option>';
+  grupos.forEach(g=>{ const o=document.createElement("option"); o.value=g; o.textContent="Grupo "+g; sel.appendChild(o); });
+}
+function aplicaFiltro(linhas){
+  const q=$("busca").value.trim().toLowerCase();
+  const g=$("filtro-grupo").value;
+  return linhas.filter(a=>{
+    if(g && a.grupo!=g) return false;
+    if(q){
+      const alvo=(a.titulo+" "+a.autorPrincipal+" "+a.idPoster+" "+a.instituicao).toLowerCase();
+      if(!alvo.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+$("busca").oninput=render;
+$("filtro-grupo").onchange=render;
+
+// ---------- ABAS ----------
+document.querySelectorAll(".aba button").forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll(".aba button").forEach(x=>x.classList.remove("ativa"));
+    b.classList.add("ativa");
+    abaAtual=b.dataset.aba;
+    ["ranking","detalhe","avaliadores"].forEach(a=>$("aba-"+a).classList.toggle("hide",a!==abaAtual));
+    render();
+  };
+});
+
+// ---------- RENDER ----------
+function render(){
+  const linhas=aplicaFiltro(LINHAS);
+  if(abaAtual==="ranking") renderRanking(linhas);
+  else if(abaAtual==="detalhe") renderDetalhe(linhas);
+  else renderAvaliadores(linhas);
+}
+
+function sortIndicador(col){ return ordCol===col?(ordDir>0?" ▲":" ▼"):""; }
+function ordena(arr,col,tipo){
+  if(ordCol!==col) return arr;
+  return [...arr].sort((a,b)=>{
+    let x=a[col],y=b[col];
+    if(tipo==="num"){ x=parseFloat(x)||-1; y=parseFloat(y)||-1; }
+    else { x=(x||"").toString().toLowerCase(); y=(y||"").toString().toLowerCase(); }
+    return x<y?-ordDir:x>y?ordDir:0;
+  });
+}
+function clicaTh(col){ if(ordCol===col) ordDir*=-1; else{ ordCol=col; ordDir=1; } render(); }
+window.clicaTh=clicaTh;
+
+function renderRanking(linhas){
+  let posteres=agrupaPorPoster(linhas);
+  posteres.sort((a,b)=>(b.mediaFinal??-1)-(a.mediaFinal??-1));
+  if(ordCol) posteres=ordena(posteres,ordCol,["idPoster","grupo","nAval","mediaFinal"].includes(ordCol)?"num":"txt");
+  let h='<table><thead><tr>'
+    +'<th>#</th>'
+    +'<th onclick="clicaTh(\'idPoster\')">ID'+sortIndicador("idPoster")+'</th>'
+    +'<th onclick="clicaTh(\'titulo\')">Título'+sortIndicador("titulo")+'</th>'
+    +'<th onclick="clicaTh(\'autorPrincipal\')">Autor principal'+sortIndicador("autorPrincipal")+'</th>'
+    +'<th onclick="clicaTh(\'grupo\')">Grupo'+sortIndicador("grupo")+'</th>'
+    +'<th onclick="clicaTh(\'nAval\')">Nº aval.'+sortIndicador("nAval")+'</th>'
+    +'<th onclick="clicaTh(\'mediaFinal\')">Média final'+sortIndicador("mediaFinal")+'</th>'
+    +'</tr></thead><tbody>';
+  posteres.forEach((p,i)=>{
+    const rk=i+1, cls=rk<=3&&!ordCol?"top"+rk:"";
+    h+=`<tr>
+      <td><span class="rank ${cls}">${rk}</span></td>
+      <td>#${esc(p.idPoster)}</td>
+      <td class="tit">${esc(p.titulo)}</td>
+      <td>${esc(p.autorPrincipal)}</td>
+      <td>${esc(p.grupo)}</td>
+      <td>${p.nAval}</td>
+      <td class="media-cell">${p.mediaFinal!=null?p.mediaFinal.toFixed(2):"—"}</td>
+    </tr>`;
+  });
+  h+='</tbody></table>';
+  if(!posteres.length) h='<p style="padding:20px;color:var(--suave)">Nenhum resultado.</p>';
+  $("aba-ranking").innerHTML=h;
+}
+
+function renderDetalhe(linhas){
+  let h='<table><thead><tr><th>ID</th><th>Título</th><th>Avaliador</th>';
+  CRITERIOS.forEach(([id,lbl])=>h+='<th>'+lbl+'</th>');
+  h+='<th>Média</th><th>Obs.</th></tr></thead><tbody>';
+  linhas.sort((a,b)=>(parseInt(a.idPoster)||0)-(parseInt(b.idPoster)||0));
+  linhas.forEach(a=>{
+    h+=`<tr><td>#${esc(a.idPoster)}</td><td class="tit">${esc(a.titulo)}</td><td>${esc(a.avaliador)}</td>`;
+    CRIT_FULL.forEach(campo=>h+='<td>'+(a[campo]!==undefined&&a[campo]!==""?a[campo]:"—")+'</td>');
+    h+=`<td class="media-cell">${a["Média"]||"—"}</td><td class="tit">${esc(a["Obs."]||"")}</td></tr>`;
+  });
+  h+='</tbody></table>';
+  if(!linhas.length) h='<p style="padding:20px;color:var(--suave)">Nenhum resultado.</p>';
+  $("aba-detalhe").innerHTML=h;
+}
+
+function renderAvaliadores(linhas){
+  const m={};
+  linhas.forEach(a=>{
+    if(!m[a.avaliador]) m[a.avaliador]={nome:a.avaliador,email:a.email,data:a.data,total:0,completos:0,somaMedias:0,nMedias:0};
+    const o=m[a.avaliador]; o.total++;
+    const md=parseFloat(a["Média"]);
+    if(!isNaN(md)){ o.completos++; o.somaMedias+=md; o.nMedias++; }
+  });
+  const arr=Object.values(m).sort((a,b)=>a.nome.localeCompare(b.nome));
+  let h='<table><thead><tr><th>Avaliador</th><th>E-mail</th><th>Data</th><th>Pôsteres</th><th>Completos</th><th>Média que atribuiu</th></tr></thead><tbody>';
+  arr.forEach(o=>{
+    const pct=o.completos===o.total;
+    h+=`<tr><td>${esc(o.nome)}</td><td>${esc(o.email||"—")}</td><td>${esc(o.data||"—")}</td>
+      <td>${o.total}</td>
+      <td><span class="pill ${pct?'pill-ok':'pill-parc'}">${o.completos}/${o.total}</span></td>
+      <td class="media-cell">${o.nMedias?(o.somaMedias/o.nMedias).toFixed(2):"—"}</td></tr>`;
+  });
+  h+='</tbody></table>';
+  if(!arr.length) h='<p style="padding:20px;color:var(--suave)">Ninguém enviou ainda.</p>';
+  $("aba-avaliadores").innerHTML=h;
+}
+
+// ---------- XLSX CONSOLIDADO ----------
+$("btn-xls").onclick=()=>{
+  if(!LINHAS.length){ msg($("painel-msg"),"Nada para exportar.","info"); return; }
+  const wb=XLSX.utils.book_new();
+  // Aba 1: todas as avaliacoes (linha a linha)
+  const ws1=XLSX.utils.json_to_sheet(LINHAS);
+  XLSX.utils.book_append_sheet(wb,ws1,"Todas avaliações");
+  // Aba 2: ranking consolidado por poster
+  const posteres=agrupaPorPoster(LINHAS).sort((a,b)=>(b.mediaFinal??-1)-(a.mediaFinal??-1));
+  const rank=posteres.map((p,i)=>({
+    Posição:i+1, ID_Pôster:p.idPoster, Título:p.titulo, Autor_principal:p.autorPrincipal,
+    Instituição:p.instituicao, Grupo:p.grupo, Nº_avaliações:p.nAval,
+    Média_final:p.mediaFinal!=null?Number(p.mediaFinal.toFixed(2)):""
+  }));
+  const ws2=XLSX.utils.json_to_sheet(rank);
+  XLSX.utils.book_append_sheet(wb,ws2,"Ranking");
+  // Aba 3: status por avaliador
+  const m={};
+  LINHAS.forEach(a=>{ if(!m[a.avaliador]) m[a.avaliador]={Avaliador:a.avaliador,Email:a.email,Data:a.data,Total:0,Completos:0};
+    m[a.avaliador].Total++; if(!isNaN(parseFloat(a["Média"]))) m[a.avaliador].Completos++; });
+  const ws3=XLSX.utils.json_to_sheet(Object.values(m));
+  XLSX.utils.book_append_sheet(wb,ws3,"Avaliadores");
+  XLSX.writeFile(wb,"consolidado_posteres_XXCBL.xlsx");
+};
+</script>
+</body>
+</html>
