@@ -120,6 +120,7 @@
 
       <div class="toolbar">
         <input type="text" id="busca" placeholder="Buscar título, autor, ID...">
+        <select id="filtro-dia"><option value="">Todos os dias</option></select>
         <select id="filtro-grupo"><option value="">Todos os grupos</option></select>
       </div>
 
@@ -211,8 +212,9 @@ function limpaMsg(){ $("painel-msg").innerHTML=""; }
 function agrupaPorPoster(linhas){
   const m={};
   linhas.forEach(a=>{
-    const id=a.idPoster;
-    if(!m[id]) m[id]={idPoster:id,titulo:a.titulo,autorPrincipal:a.autorPrincipal,instituicao:a.instituicao,grupo:a.grupo,avals:[]};
+    // chave por dia + pôster: o mesmo número em dias diferentes é pôster diferente
+    const id=(a.dia||"?")+"|"+a.idPoster+"|"+(a.idOriginal||"");
+    if(!m[id]) m[id]={dia:a.dia,diaNome:a.diaNome,idPoster:a.idPoster,idOriginal:a.idOriginal,titulo:a.titulo,autorPrincipal:a.autorPrincipal,instituicao:a.instituicao,grupo:a.grupo,avals:[]};
     m[id].avals.push(a);
   });
   return Object.values(m).map(p=>{
@@ -240,11 +242,17 @@ function montaFiltros(){
   const sel=$("filtro-grupo");
   sel.innerHTML='<option value="">Todos os grupos</option>';
   grupos.forEach(g=>{ const o=document.createElement("option"); o.value=g; o.textContent="Grupo "+g; sel.appendChild(o); });
+  const dias=[...new Set(LINHAS.map(a=>a.dia))].filter(d=>d).sort();
+  const selD=$("filtro-dia");
+  selD.innerHTML='<option value="">Todos os dias</option>';
+  dias.forEach(d=>{ const o=document.createElement("option"); o.value=d; o.textContent=(LINHAS.find(x=>x.dia===d)||{}).diaNome||("Dia "+d); selD.appendChild(o); });
 }
 function aplicaFiltro(linhas){
   const q=$("busca").value.trim().toLowerCase();
   const g=$("filtro-grupo").value;
+  const d=$("filtro-dia").value;
   return linhas.filter(a=>{
+    if(d && a.dia!=d) return false;
     if(g && a.grupo!=g) return false;
     if(q){
       const alvo=(a.titulo+" "+a.autorPrincipal+" "+a.idPoster+" "+a.instituicao).toLowerCase();
@@ -256,6 +264,7 @@ function aplicaFiltro(linhas){
 
 $("busca").oninput=render;
 $("filtro-grupo").onchange=render;
+$("filtro-dia").onchange=render;
 
 // ---------- ABAS ----------
 document.querySelectorAll(".aba button").forEach(b=>{
@@ -292,9 +301,10 @@ window.clicaTh=clicaTh;
 function renderRanking(linhas){
   let posteres=agrupaPorPoster(linhas);
   posteres.sort((a,b)=>(b.mediaFinal??-1)-(a.mediaFinal??-1));
-  if(ordCol) posteres=ordena(posteres,ordCol,["idPoster","grupo","nAval","mediaFinal"].includes(ordCol)?"num":"txt");
+  if(ordCol) posteres=ordena(posteres,ordCol,["idPoster","grupo","nAval","mediaFinal","dia"].includes(ordCol)?"num":"txt");
   let h='<table><thead><tr>'
     +'<th>#</th>'
+    +'<th onclick="clicaTh(\'dia\')">Dia'+sortIndicador("dia")+'</th>'
     +'<th onclick="clicaTh(\'idPoster\')">ID'+sortIndicador("idPoster")+'</th>'
     +'<th onclick="clicaTh(\'titulo\')">Título'+sortIndicador("titulo")+'</th>'
     +'<th onclick="clicaTh(\'autorPrincipal\')">Autor principal'+sortIndicador("autorPrincipal")+'</th>'
@@ -306,6 +316,7 @@ function renderRanking(linhas){
     const rk=i+1, cls=rk<=3&&!ordCol?"top"+rk:"";
     h+=`<tr>
       <td><span class="rank ${cls}">${rk}</span></td>
+      <td>${esc(p.dia||"—")}</td>
       <td>#${esc(p.idPoster)}</td>
       <td class="tit">${esc(p.titulo)}</td>
       <td>${esc(p.autorPrincipal)}</td>
@@ -320,12 +331,12 @@ function renderRanking(linhas){
 }
 
 function renderDetalhe(linhas){
-  let h='<table><thead><tr><th>ID</th><th>Título</th><th>Avaliador</th>';
+  let h='<table><thead><tr><th>Dia</th><th>ID</th><th>Título</th><th>Avaliador</th>';
   CRITERIOS.forEach(([id,lbl])=>h+='<th>'+lbl+'</th>');
   h+='<th>Média</th><th>Obs.</th></tr></thead><tbody>';
-  linhas.sort((a,b)=>(parseInt(a.idPoster)||0)-(parseInt(b.idPoster)||0));
+  linhas.sort((a,b)=>(a.dia||"").localeCompare(b.dia||"")||(parseInt(a.idPoster)||0)-(parseInt(b.idPoster)||0));
   linhas.forEach(a=>{
-    h+=`<tr><td>#${esc(a.idPoster)}</td><td class="tit">${esc(a.titulo)}</td><td>${esc(a.avaliador)}</td>`;
+    h+=`<tr><td>${esc(a.dia||"—")}</td><td>#${esc(a.idPoster)}</td><td class="tit">${esc(a.titulo)}</td><td>${esc(a.avaliador)}</td>`;
     CRIT_FULL.forEach(campo=>h+='<td>'+(a[campo]!==undefined&&a[campo]!==""?a[campo]:"—")+'</td>');
     h+=`<td class="media-cell">${a["Média"]||"—"}</td><td class="tit">${esc(a["Obs."]||"")}</td></tr>`;
   });
@@ -337,16 +348,17 @@ function renderDetalhe(linhas){
 function renderAvaliadores(linhas){
   const m={};
   linhas.forEach(a=>{
-    if(!m[a.avaliador]) m[a.avaliador]={nome:a.avaliador,email:a.email,data:a.data,total:0,completos:0,somaMedias:0,nMedias:0};
-    const o=m[a.avaliador]; o.total++;
+    const kk=a.avaliador+"|"+(a.dia||"");
+    if(!m[kk]) m[kk]={nome:a.avaliador,dia:a.diaNome||a.dia,email:a.email,data:a.data,total:0,completos:0,somaMedias:0,nMedias:0};
+    const o=m[kk]; o.total++;
     const md=parseFloat(a["Média"]);
     if(!isNaN(md)){ o.completos++; o.somaMedias+=md; o.nMedias++; }
   });
-  const arr=Object.values(m).sort((a,b)=>a.nome.localeCompare(b.nome));
-  let h='<table><thead><tr><th>Avaliador</th><th>E-mail</th><th>Data</th><th>Pôsteres</th><th>Completos</th><th>Média que atribuiu</th></tr></thead><tbody>';
+  const arr=Object.values(m).sort((a,b)=>(a.dia||"").localeCompare(b.dia||"")||a.nome.localeCompare(b.nome));
+  let h='<table><thead><tr><th>Avaliador</th><th>Dia</th><th>E-mail</th><th>Data</th><th>Pôsteres</th><th>Completos</th><th>Média que atribuiu</th></tr></thead><tbody>';
   arr.forEach(o=>{
     const pct=o.completos===o.total;
-    h+=`<tr><td>${esc(o.nome)}</td><td>${esc(o.email||"—")}</td><td>${esc(o.data||"—")}</td>
+    h+=`<tr><td>${esc(o.nome)}</td><td>${esc(o.dia||"—")}</td><td>${esc(o.email||"—")}</td><td>${esc(o.data||"—")}</td>
       <td>${o.total}</td>
       <td><span class="pill ${pct?'pill-ok':'pill-parc'}">${o.completos}/${o.total}</span></td>
       <td class="media-cell">${o.nMedias?(o.somaMedias/o.nMedias).toFixed(2):"—"}</td></tr>`;
@@ -363,19 +375,19 @@ $("btn-xls").onclick=()=>{
   // Aba 1: todas as avaliacoes (linha a linha)
   const ws1=XLSX.utils.json_to_sheet(LINHAS);
   XLSX.utils.book_append_sheet(wb,ws1,"Todas avaliações");
-  // Aba 2: ranking consolidado por poster
-  const posteres=agrupaPorPoster(LINHAS).sort((a,b)=>(b.mediaFinal??-1)-(a.mediaFinal??-1));
-  const rank=posteres.map((p,i)=>({
-    Posição:i+1, ID_Pôster:p.idPoster, Título:p.titulo, Autor_principal:p.autorPrincipal,
+  // Aba 2: ranking consolidado por poster (por dia)
+  const posteres=agrupaPorPoster(LINHAS).sort((a,b)=>(a.dia||"").localeCompare(b.dia||"")||(b.mediaFinal??-1)-(a.mediaFinal??-1));
+  const rank=posteres.map(p=>({
+    Dia:p.diaNome||p.dia, ID_Pôster:p.idPoster, ID_original:p.idOriginal, Título:p.titulo, Autor_principal:p.autorPrincipal,
     Instituição:p.instituicao, Grupo:p.grupo, Nº_avaliações:p.nAval,
     Média_final:p.mediaFinal!=null?Number(p.mediaFinal.toFixed(2)):""
   }));
   const ws2=XLSX.utils.json_to_sheet(rank);
   XLSX.utils.book_append_sheet(wb,ws2,"Ranking");
-  // Aba 3: status por avaliador
+  // Aba 3: status por avaliador+dia
   const m={};
-  LINHAS.forEach(a=>{ if(!m[a.avaliador]) m[a.avaliador]={Avaliador:a.avaliador,Email:a.email,Data:a.data,Total:0,Completos:0};
-    m[a.avaliador].Total++; if(!isNaN(parseFloat(a["Média"]))) m[a.avaliador].Completos++; });
+  LINHAS.forEach(a=>{ const kk=a.avaliador+"|"+a.dia; if(!m[kk]) m[kk]={Avaliador:a.avaliador,Dia:a.diaNome||a.dia,Email:a.email,Data:a.data,Total:0,Completos:0};
+    m[kk].Total++; if(!isNaN(parseFloat(a["Média"]))) m[kk].Completos++; });
   const ws3=XLSX.utils.json_to_sheet(Object.values(m));
   XLSX.utils.book_append_sheet(wb,ws3,"Avaliadores");
   XLSX.writeFile(wb,"consolidado_posteres_XXCBL.xlsx");
